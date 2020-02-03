@@ -1,0 +1,16 @@
+{
+  "name": "pwa-app-start",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node_modules/http-serve/bin/http-serve -c-1",
+    "generate-sw-wizard": "workbox wizard && workbox generateSW workbox-config.js",
+    "generate-sw": "workbox generateSW workbox-config.js",
+    "inject-manifest": "workbox injectManifest"
+  },
+  "devDependencies": {
+    "http-serve": "^1.0.1",
+    "workbox-cli": "^5.0.0"
+  }
+}

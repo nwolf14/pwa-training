@@ -1,0 +1,12 @@
+{
+  "name": "pwa-app-start",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node_modules/http-serve/bin/http-serve -c-1"
+  },
+  "devDependencies": {
+    "http-serve": "^1.0.1"
+  }
+}
