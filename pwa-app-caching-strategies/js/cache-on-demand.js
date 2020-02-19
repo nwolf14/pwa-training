@@ -17,7 +17,8 @@
 
   fetch(url)
     .then(response => response.json())
-    .then(data => renderUser(data.results[0]));
+    .then(data => renderUser(data.results[0]))
+    .catch(() => {});
 
   const btn = document.querySelector("#cacheOnDemandBtn");
   btn.addEventListener("click", () => {

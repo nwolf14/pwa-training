@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node_modules/http-serve/bin/http-serve -c-1",
-    "generate-sw-wizard": "workbox wizard && workbox generateSW workbox-config.js",
+    "generate-sw-with-wizard": "workbox wizard && workbox generateSW workbox-config.js",
     "generate-sw": "workbox generateSW workbox-config.js",
     "inject-manifest": "workbox injectManifest"
   },

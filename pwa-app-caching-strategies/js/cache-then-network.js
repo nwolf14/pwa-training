@@ -1,6 +1,6 @@
 (() => {
   const containerNode = document.querySelector(".user-data-container");
-  const url = "https://randomuser.me/api/?seed=foobar";
+  const url = "https://randomuser.me/api";
   let isFetched = false;
 
   function removeUsers() {
@@ -34,14 +34,9 @@
   if ("caches" in window) {
     caches
       .match(url)
-      .then(response => {
-        if (response) {
-          return response.json();
-        }
-      })
+      .then(response => response ? response.json() : null)
       .then(data => {
         if (!isFetched && data) {
-          removeUsers();
           renderUser(data);
         }
       });

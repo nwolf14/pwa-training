@@ -42,4 +42,3 @@ function deleteItemFromData(st, id) {
       return tx.complete;
     })
 }
-

@@ -16,6 +16,17 @@ const STATIC_FILES = [
   "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"
 ];
 
+function isInArray(string, array) {
+  var cachePath;
+  if (string.indexOf(self.origin) === 0) { // request targets domain where we serve the page from (i.e. NOT a CDN)
+    console.log('matched ', string);
+    cachePath = string.substring(self.origin.length); // take the part of the URL AFTER the domain (e.g. after localhost:8080)
+  } else {
+    cachePath = string; // store the full request (for CDNs)
+  }
+  return array.indexOf(cachePath) > -1;
+}
+
 function trimCache(cacheName, maxItems) {
   caches.open(cacheName).then(cache =>
     cache.keys().then(keys => {
@@ -59,130 +70,153 @@ self.addEventListener("activate", event => {
 
 /* *********************** CACHE WITH NETWORK FALLBACK (WITH DYNAMIC CACHE) ********************* */
 
-// self.addEventListener("fetch", event => {
-//   event.respondWith(  // coś w stylu fetch proxy
-//     caches
-//     .match(event.request)
-//     .then(function(response) {
-//       if (response) { // jezeli istnieje w cachu zwracamy
-//         return response;
-//       } else {
-//         if (event.request.url.indexOf("randomuser.me") > -1) { // nie chcemy cachować danych z API
-//           return fetch(event.request);
-//         }
+// addEventListener("fetch", event => {
+//   if (event.request.url.indexOf("http") > -1) {
+//     event.respondWith(
+//       caches.match(event.request).then(function(response) {
+//         if (response) {
+//           return Promise.resolve(response);
+//         } else {
+//           if (event.request.url.indexOf("randomuser.me") > -1) {
+//             // nie chcemy cachować danych z API, poniewaz bedziemy robic to jako cache on demand
+//             return fetch(event.request).catch(() => {});
+//           }
 
-//         if (event.request.url.indexOf("http") > -1) { // wykluczamy requesty typu chrome-extension://
-//           return fetch(event.request) // wykonujemy request
+//           return fetch(event.request)
 //             .then(function(response) {
-//               return caches
-//                 .open(DYNAMIC_CACHE) // otwieramy nowy cache
-//                 .then(function(cache) {
-//                   // poniewaz request jest juz wykonany uzywamy add() zamiast put()
-//                   cache.put(event.request.url, response.clone()); // response mozna skonsumować tylko raz dlatego tworzymy kopie
-//                   return response; // zwracamy response do html-a
-//                 });
+//               return caches.open(DYNAMIC_CACHE).then(function(cache) {
+//                 trimCache(DYNAMIC_CACHE, 10);
+//                 cache.put(event.request, response.clone());
+//                 return Promise.resolve(response);
+//               });
 //             })
-//             .catch(function(error) {
-//               return caches
-//                 .open(STATIC_CACHE)
-//                 .then(cache => {
-//                   if (event.request.headers.get('accept').includes('text/html')) {
-//                     return cache.match('/offline.html');
-//                   }
-//               })
-//             }); // pusty catch, dla wszystkich fetchy wywoływanych w trybie offline
+//             .catch(function() {
+//               if (event.request.headers.get("accept").includes("text/html")) {
+//                 // dodajemy offline fallback dla plików html
+//                 return caches
+//                   .open(STATIC_CACHE)
+//                   .then(cache =>
+//                     cache
+//                       .match(event.request)
+//                       .then(response => {
+//                         if (response) {
+//                           return Promise.resolve(response);
+//                         }
+
+//                         return cache
+//                           .match("/offline.html")
+                            // .then((fallbackResponse) => Promise.resolve(fallbackResponse));
+//                       })
+//                   );
+//               }
+//             });
 //         }
-//       }
-//     })
-//   );
+//       })
+//     );
+//   }
 // });
 
-/* *********************** NETWORK WITH CACHE FALLBACK (WITHOUT DYNAMIC CACHE) ********************* */
+// /* *********************** NETWORK WITH CACHE FALLBACK (WITHOUT DYNAMIC CACHE) ********************* */
 
-// self.addEventListener("fetch", event => {
-//   event.respondWith(event => {
-//     fetch(event.request)
-//       .catch(() => caches.match(event.request))
-//   });
+// addEventListener("fetch", event => {
+//   if (event.request.url.indexOf("http") > -1) {
+//     event.respondWith(event =>
+//       fetch(event.request).catch(() => caches.match(event.request))
+//     );
+//   }
 // });
 
 /* *********************** NETWORK WITH CACHE FALLBACK (WITH DYNAMIC CACHE) ********************* */
 
-// self.addEventListener("fetch", event => {
-//   event.respondWith(event => {
-//     fetch(event.request)
-//       .then(response => {
-//         return caches
-//           .open(DYNAMIC_CACHE)
-//           .then(cache => {
-//             cache.put(event.request.url, response.clone());
-//             return response;
-//           });
-//       })
-//       .catch(() => {
-//         return caches.match(event.request);
-//       })
-//   });
+// addEventListener("fetch", event => {
+//   if (event.request.url.indexOf("http") > -1) {
+//     event.respondWith(
+//       fetch(event.request)
+//         .then(response =>
+//           caches
+//             .open(DYNAMIC_CACHE)
+//             .then(cache => {
+//               trimCache(DYNAMIC_CACHE, 10);
+//               cache.put(event.request, response.clone());
+//               return Promise.resolve(response);
+//             })
+//         )
+//         .catch(() => caches.match(event.request))
+//     )
+//   };
 // });
 
-/* *********************** CACHE, THEN NETWORK (WITH DYNAMIC CACHE) ********************* */
+// /* *********************** CACHE, THEN NETWORK (WITH DYNAMIC CACHE) + CACHE ONLY FOR STATIC FILES ********************* */
 
-self.addEventListener("fetch", event => {
-  const url = "https://randomuser.me/api";
-
-  if (event.request.url.indexOf(url) > -1) {
-    event.respondWith(
-      fetch(event.request).then(response => {
-        const clonedResponse = response.clone();
-        clonedResponse.json().then(data => {
-          if (Array.isArray(data.results)) {
-            data.results.forEach(user => {
-              clearAllData("users");
-              // deleteItemFromData('users', '938-637-820')
-              //   .then(() => { console.log('item deleted') });
-              writeData("users", user);
-            });
-          }
-        });
-        return response;
-      })
-    );
-  } else {
-    event.respondWith(
-      // CACHE WITH NETWORK FALLBACK dla reszty plików w celu pełnej obsługi trybu offline
-      caches.match(event.request).then(function(response) {
-        if (response) {
-          return response;
-        } else {
-          if (event.request.url.indexOf("http") > -1) {
+addEventListener("fetch", event => {
+  if (event.request.url.indexOf("http") > -1) {
+    if (event.request.url.indexOf("https://randomuser.me/api") > -1) { // CACHE, THEN NETWORK tylko dla dynamicznego kontentu z api
+      event.respondWith(
+        caches
+          .open(DYNAMIC_CACHE)
+          .then(cache =>
+            fetch(event.request)
+              .then(response => {
+                trimCache(DYNAMIC_CACHE, 10);
+                cache.put(event.request, response.clone());
+                return Promise.resolve(response);
+              })
+              .catch(() =>
+                caches
+                  .match(event.request)
+                  .then(response => Promise.resolve(response ? response : new Response()))
+              )
+          )
+      );
+    } else if (isInArray(event.request.url, STATIC_FILES)) { // CACHE ONLY, dla plików statycznych
+      event.respondWith(
+        caches
+          .match(event.request, { ignoreSearch: true })
+          .then(response => Promise.resolve(response ? response : new Response()))
+          .catch(() => fetch(event.request))
+      );
+    } else {
+      event.respondWith( // CACHE WITH NETWORK FALLBACK dla reszty plików w celu pełnej obsługi trybu offline
+        caches.match(event.request).then(function(response) {
+          if (response) {
+            return Promise.resolve(response);
+          } else {
             return fetch(event.request)
-              .then(function(response) {
+              .then(response => {
                 return caches.open(DYNAMIC_CACHE).then(function(cache) {
-                  trimCache(DYNAMIC_CACHE, 15);
-                  cache.put(event.request.url, response.clone());
-                  return response;
+                  trimCache(DYNAMIC_CACHE, 10);
+                  cache.put(event.request, response.clone());
+                  return Promise.resolve(response);
                 });
               })
-              .catch(function(error) {
-                return caches.open(STATIC_CACHE).then(cache => {
-                  if (
-                    event.request.headers.get("accept").includes("text/html")
-                  ) {
-                    return cache
-                      .match("/offline.html")
-                      .then(response => response);
-                  }
-                });
+              .catch(() => {
+                if (event.request.headers.get("accept").includes("text/html")) {
+                  return caches
+                    .open(STATIC_CACHE)
+                    .then(cache =>
+                      cache
+                        .match(event.request)
+                        .then(response => {
+                          if (response) {
+                            return Promise.resolve(response);
+                          }
+
+                          return cache
+                            .match("/offline.html")
+                            .then((fallbackResponse) => Promise.resolve(fallbackResponse));
+                        })
+                    );
+                }
               });
           }
-        }
-      })
-    );
+        })
+      );
+    }
   }
 });
 
-self.addEventListener("sync", event => {
-  console.log('Sync event')
+addEventListener("sync", event => {
+  console.log('Sync event...')
   if (event.tag === "sync-new-post") {
     event.waitUntil(
       readAllData("sync-posts").then(posts => {

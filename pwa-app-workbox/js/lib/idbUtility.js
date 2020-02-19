@@ -1,4 +1,4 @@
-var dbPromise = idb.open('users-store', 1, function (db) {
+var dbPromise = idb.open('pwa-example', 1, function (db) {
   if (!db.objectStoreNames.contains('users')) {
     db.createObjectStore('users', {keyPath: 'phone'});
   }
@@ -33,7 +33,7 @@ function clearAllData(st) {
     });
 }
 
-function deleteItemFromData(st, id) {
+function deleteItemFromDb(st, id) {
   return dbPromise
     .then(function(db) {
       var tx = db.transaction(st, 'readwrite');

@@ -1,10 +1,12 @@
-const STATIC_CACHE = 'static-v2'; 
-const DYNAMIC_CACHE = 'dynamic-v3'; 
+const STATIC_CACHE = "static-v2";
+const DYNAMIC_CACHE = "dynamic-v3";
 
 const STATIC_FILES = [
   "/index.html",
   "/offline.html",
   "/js/app.js",
+  "/js/lib/idb.js",
+  "/js/lib/idbUtility.js",
   "/styles/style.css",
   "/images/bootstrap.png",
   "https://netdna.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js",
@@ -13,162 +15,200 @@ const STATIC_FILES = [
 ];
 
 function trimCache(cacheName, maxItems) {
-  caches
-    .open(cacheName)
-    .then(cache => cache
-      .keys()
-      .then(keys => {
-        if (keys.length > maxItems) {
-          cache
-            .delete(keys[0])
-            .then(() => trimCache(cacheName, maxItems))
-        }
-      })
-    )
+  caches.open(cacheName).then(cache =>
+    cache.keys().then(keys => {
+      if (keys.length > maxItems) {
+        cache.delete(keys[0]).then(() => trimCache(cacheName, maxItems));
+      }
+    })
+  );
 }
 
-self.addEventListener('install', function(event) {
+function isInArray(string, array) {
+  var cachePath;
+  if (string.indexOf(self.origin) === 0) { // request targets domain where we serve the page from (i.e. NOT a CDN)
+    console.log('matched ', string);
+    cachePath = string.substring(self.origin.length); // take the part of the URL AFTER the domain (e.g. after localhost:8080)
+  } else {
+    cachePath = string; // store the full request (for CDNs)
+  }
+  return array.indexOf(cachePath) > -1;
+}
+
+addEventListener("install", function(event) {
   // zostanie wykonany gdy przeglądarka wykryje nowy SW
-  console.log('[Service Worker] Installing Service Worker ...', event);
-  event.waitUntil( // dzięki temu zdarzenie 'install' za nim zacznie kontynuować, zaczeka az wykona się nasz promise
-    caches.open(STATIC_CACHE)
-      .then(function(cache) {
-        console.log('[Service Worker] Precaching App Shell');
-        return cache.addAll(STATIC_FILES); // wykonuje i cachuje requesty, kluczem jest adres ządania
-      })
-  )
+  console.log("[Service Worker] Installing Service Worker ..", event);
+  event.waitUntil(
+    // dzięki temu zdarzenie 'install' za nim zacznie kontynuować, zaczeka az wykona się nasz promise
+    caches.open(STATIC_CACHE).then(function(cache) {
+      console.log("[Service Worker] Precaching App Shell");
+      return cache.addAll(STATIC_FILES); // wykonuje i cachuje requesty, kluczem jest adres ządania
+    })
+  );
 });
 
-self.addEventListener("activate", event => { // zostanie wykonany gdy poprzedni SW zostanie zderejestrowany poprzez np. zamknięcie wszystkich zakładek naszej aplikacji w przeglądarce
-  event.waitUntil( // czyścimy śmieci tutaj poniewaz nie jestesmy ju w aktywnej aplikacji
-    caches
-      .keys()
-      .then(function(keyList) {
-        return Promise.all(keyList.map(function(key) {
+addEventListener("activate", event => {
+  // zostanie wykonany gdy poprzedni SW zostanie zderejestrowany poprzez np. zamknięcie wszystkich zakładek naszej aplikacji w przeglądarce
+  event.waitUntil(
+    // czyścimy śmieci tutaj poniewaz nie jestesmy ju w aktywnej aplikacji
+    caches.keys().then(function(keyList) {
+      return Promise.all(
+        keyList.map(function(key) {
           if (key !== STATIC_CACHE && key !== DYNAMIC_CACHE) {
-            return caches.delete(key); // zwraca Promise 
+            return caches.delete(key); // zwraca Promise
           }
-        }));
-      })
+        })
+      );
+    })
   );
 
-  console.log("SW activating...", event);
-  return self.clients.claim(); // zapewnia poprawne działanie w momencie aktywacji
+  console.log("SW activating....", event);
+  return clients.claim(); // zapewnia poprawne działanie w momencie aktywacji
 });
 
 /* *********************** CACHE WITH NETWORK FALLBACK (WITH DYNAMIC CACHE) ********************* */
 
-// self.addEventListener("fetch", event => {
-//   event.respondWith(  // coś w stylu fetch proxy
-//     caches
-//     .match(event.request)
-//     .then(function(response) {
-//       if (response) { // jezeli istnieje w cachu zwracamy
-//         return response;
-//       } else {
-//         if (event.request.url.indexOf("randomuser.me") > -1) { // nie chcemy cachować danych z API
-//           return fetch(event.request);
-//         }
+// addEventListener("fetch", event => {
+//   if (event.request.url.indexOf("http") > -1) {
+//     event.respondWith(
+//       caches.match(event.request).then(function(response) {
+//         if (response) {
+//           return Promise.resolve(response);
+//         } else {
+//           if (event.request.url.indexOf("randomuser.me") > -1) {
+//             // nie chcemy cachować danych z API, poniewaz bedziemy robic to jako cache on demand
+//             return fetch(event.request).catch(() => {});
+//           }
 
-//         if (event.request.url.indexOf("http") > -1) { // wykluczamy requesty typu chrome-extension://
-//           return fetch(event.request) // wykonujemy request
+//           return fetch(event.request)
 //             .then(function(response) {
-//               return caches
-//                 .open(DYNAMIC_CACHE) // otwieramy nowy cache
-//                 .then(function(cache) {
-//                   // poniewaz request jest juz wykonany uzywamy add() zamiast put()
-//                   cache.put(event.request.url, response.clone()); // response mozna skonsumować tylko raz dlatego tworzymy kopie
-//                   return response; // zwracamy response do html-a
-//                 });
+//               return caches.open(DYNAMIC_CACHE).then(function(cache) {
+//                 trimCache(DYNAMIC_CACHE, 10);
+//                 cache.put(event.request, response.clone());
+//                 return Promise.resolve(response);
+//               });
 //             })
-//             .catch(function(error) {
-//               if (event.request.headers.get('accept').includes('text/html')) {
+//             .catch(function() {
+//               if (event.request.headers.get("accept").includes("text/html")) {
+//                 // dodajemy offline fallback dla plików html
 //                 return caches
 //                   .open(STATIC_CACHE)
-//                   .then(cache => cache.match('/offline.html').then(response => response));
+//                   .then(cache =>
+//                     cache
+//                       .match(event.request)
+//                       .then(response => {
+//                         if (response) {
+//                           return Promise.resolve(response);
+//                         }
+
+//                         return cache
+//                           .match("/offline.html")
+                            // .then((fallbackResponse) => Promise.resolve(fallbackResponse));
+//                       })
+//                   );
 //               }
-//             })
+//             });
 //         }
-//       }
-//     })
-//   );
+//       })
+//     );
+//   }
 // });
 
-/* *********************** NETWORK WITH CACHE FALLBACK (WITHOUT DYNAMIC CACHE) ********************* */
+// /* *********************** NETWORK WITH CACHE FALLBACK (WITHOUT DYNAMIC CACHE) ********************* */
 
-// self.addEventListener("fetch", event => {
-//   event.respondWith(event => {
-//     fetch(event.request)
-//       .catch(() => caches.match(event.request))
-//   });
+// addEventListener("fetch", event => {
+//   if (event.request.url.indexOf("http") > -1) {
+//     event.respondWith(event =>
+//       fetch(event.request).catch(() => caches.match(event.request))
+//     );
+//   }
 // });
 
 /* *********************** NETWORK WITH CACHE FALLBACK (WITH DYNAMIC CACHE) ********************* */
 
-// self.addEventListener("fetch", event => {
-//   event.respondWith(event => {
-//     fetch(event.request)
-//       .then(response => {
-//         return caches
-//           .open(DYNAMIC_CACHE)
-//           .then(cache => {
-//             cache.put(event.request.url, response.clone());
-//             return response;
-//           });
-//       })
-//       .catch(() => {
-//         return caches.match(event.request);
-//       })
-//   });
+// addEventListener("fetch", event => {
+//   if (event.request.url.indexOf("http") > -1) {
+//     event.respondWith(
+//       fetch(event.request)
+//         .then(response =>
+//           caches
+//             .open(DYNAMIC_CACHE)
+//             .then(cache => {
+//               trimCache(DYNAMIC_CACHE, 10);
+//               cache.put(event.request, response.clone());
+//               return Promise.resolve(response);
+//             })
+//         )
+//         .catch(() => caches.match(event.request))
+//     )
+//   };
 // });
 
-/* *********************** CACHE, THEN NETWORK (WITH DYNAMIC CACHE) ********************* */
+// /* *********************** CACHE, THEN NETWORK (WITH DYNAMIC CACHE) + CACHE ONLY FOR STATIC FILES ********************* */
 
-self.addEventListener("fetch", event => {
-  const url = "https://randomuser.me/api";
-
-  if (event.request.url.indexOf(url) > -1) { // CACHE, THEN NETWORK tylko dla dynamicznego kontentu
-    event.respondWith(
-      caches
-        .open(DYNAMIC_CACHE)
-        .then(cache => 
-          fetch(event.request)
-            .then(response => {
-              trimCache(DYNAMIC_CACHE, 3);
-              cache.put(event.request.url, response.clone());
-              return response;
-            })
-        )
-    );
-  } else {
-    event.respondWith( // CACHE WITH NETWORK FALLBACK dla reszty plików w celu pełnej obsługi trybu offline
-      caches
-        .match(event.request)
-        .then(function(response) {
+addEventListener("fetch", event => {
+  if (event.request.url.indexOf("http") > -1) {
+    if (event.request.url.indexOf("https://randomuser.me/api") > -1) { // CACHE, THEN NETWORK tylko dla dynamicznego kontentu z api
+      event.respondWith(
+        caches
+          .open(DYNAMIC_CACHE)
+          .then(cache =>
+            fetch(event.request)
+              .then(response => {
+                trimCache(DYNAMIC_CACHE, 10);
+                cache.put(event.request, response.clone());
+                return Promise.resolve(response);
+              })
+              .catch(() =>
+                caches
+                  .match(event.request)
+                  .then(response => Promise.resolve(response ? response : new Response()))
+              )
+          )
+      );
+    } else if (isInArray(event.request.url, STATIC_FILES)) { // CACHE ONLY, dla plików statycznych
+      event.respondWith(
+        caches
+          .match(event.request, { ignoreSearch: true })
+          .then(response => Promise.resolve(response ? response : new Response()))
+          .catch(() => fetch(event.request))
+      );
+    } else {
+      event.respondWith( // CACHE WITH NETWORK FALLBACK dla reszty plików w celu pełnej obsługi trybu offline
+        caches.match(event.request).then(function(response) {
           if (response) {
-            return response;
+            return Promise.resolve(response);
           } else {
-            if (event.request.url.indexOf("http") > -1) {
-              return fetch(event.request)
-                .then(function(response) {
+            return fetch(event.request)
+              .then(response => {
+                return caches.open(DYNAMIC_CACHE).then(function(cache) {
+                  trimCache(DYNAMIC_CACHE, 10);
+                  cache.put(event.request, response.clone());
+                  return Promise.resolve(response);
+                });
+              })
+              .catch(() => {
+                if (event.request.headers.get("accept").includes("text/html")) {
                   return caches
-                    .open(DYNAMIC_CACHE)
-                    .then(function(cache) {
-                      trimCache(DYNAMIC_CACHE, 3);
-                      cache.put(event.request.url, response.clone());
-                      return response;
-                    });
-                })
-                .catch(function(error) {
-                  if (event.request.headers.get('accept').includes('text/html')) {
-                    return caches
-                      .open(STATIC_CACHE)
-                      .then(cache => cache.match('/offline.html').then(response => response));
-                  }
-                })
-            }
+                    .open(STATIC_CACHE)
+                    .then(cache =>
+                      cache
+                        .match(event.request)
+                        .then(response => {
+                          if (response) {
+                            return Promise.resolve(response);
+                          }
+
+                          return cache
+                            .match("/offline.html")
+                            .then((fallbackResponse) => Promise.resolve(fallbackResponse));
+                        })
+                    );
+                }
+              });
           }
-      })
-    );
+        })
+      );
+    }
   }
 });

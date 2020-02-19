@@ -6,3 +6,4 @@ pwa-app-service-worker/node_modules
 pwa-app-start/node_modules
 pwa-app-with-react/node_modules
 pwa-app-workbox/node_modules
+pwa-app-background-sync/node_modules
