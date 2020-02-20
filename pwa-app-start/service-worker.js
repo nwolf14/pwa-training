@@ -156,7 +156,7 @@ addEventListener("fetch", event => {
                   cache.put(event.request, res.clone()).then(() => {
                     trimCache(DYNAMIC_CACHE, 10);
                   });
-                  return Promise.resolve(response);
+                  return Promise.resolve(res);
                 });
               })
               .catch(() => {
