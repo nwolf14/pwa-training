@@ -2,7 +2,7 @@ importScripts("/js/lib/idb.js");
 importScripts("/js/lib/idbUtility.js");
 
 const STATIC_CACHE = "static-v2";
-const DYNAMIC_CACHE = "dynamic-v6";
+const DYNAMIC_CACHE = `dynamic-${new Date().getUTCMilliseconds()}`;
 
 const STATIC_FILES = [
   "/index.html",
@@ -85,8 +85,9 @@ self.addEventListener("activate", event => {
 //           return fetch(event.request)
 //             .then(function(response) {
 //               return caches.open(DYNAMIC_CACHE).then(function(cache) {
-//                 trimCache(DYNAMIC_CACHE, 10);
-//                 cache.put(event.request, response.clone());
+//                 cache.put(event.request, response.clone()).then(() => {
+//                   trimCache(DYNAMIC_CACHE, 10);
+//                 });
 //                 return Promise.resolve(response);
 //               });
 //             })
@@ -105,7 +106,7 @@ self.addEventListener("activate", event => {
 
 //                         return cache
 //                           .match("/offline.html")
-                            // .then((fallbackResponse) => Promise.resolve(fallbackResponse));
+//                             .then((fallbackResponse) => Promise.resolve(fallbackResponse));
 //                       })
 //                   );
 //               }
@@ -136,8 +137,9 @@ self.addEventListener("activate", event => {
 //           caches
 //             .open(DYNAMIC_CACHE)
 //             .then(cache => {
-//               trimCache(DYNAMIC_CACHE, 10);
-//               cache.put(event.request, response.clone());
+//               cache.put(event.request, response.clone()).then(() => {
+//                 trimCache(DYNAMIC_CACHE, 10);
+//               });
 //               return Promise.resolve(response);
 //             })
 //         )
@@ -157,8 +159,9 @@ addEventListener("fetch", event => {
           .then(cache =>
             fetch(event.request)
               .then(response => {
-                trimCache(DYNAMIC_CACHE, 10);
-                cache.put(event.request, response.clone());
+                cache.put(event.request, response.clone()).then(() => {
+                  trimCache(DYNAMIC_CACHE, 10);
+                });
                 return Promise.resolve(response);
               })
               .catch(() =>
@@ -184,8 +187,9 @@ addEventListener("fetch", event => {
             return fetch(event.request)
               .then(response => {
                 return caches.open(DYNAMIC_CACHE).then(function(cache) {
-                  trimCache(DYNAMIC_CACHE, 10);
-                  cache.put(event.request, response.clone());
+                  cache.put(event.request, response.clone()).then(() => {
+                    trimCache(DYNAMIC_CACHE, 10);
+                  });
                   return Promise.resolve(response);
                 });
               })

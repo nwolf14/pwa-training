@@ -1,5 +1,5 @@
 const STATIC_CACHE = "static-v2";
-const DYNAMIC_CACHE = "dynamic-v4";
+const DYNAMIC_CACHE = `dynamic-${new Date().getUTCMilliseconds()}`;
 
 const STATIC_FILES = [
   "/index.html",
@@ -73,9 +73,10 @@ addEventListener("fetch", event => {
               return caches
                 .open(DYNAMIC_CACHE) // otwieramy nowy cache
                 .then(function(cache) {
-                  trimCache(DYNAMIC_CACHE, 3);
                   // poniewaz request jest juz wykonany uzywamy put() zamiast add()
-                  cache.put(event.request, response.clone()); // response mozna skonsumować tylko raz dlatego tworzymy kopie
+                  cache.put(event.request, response.clone()).then(() => {
+                    trimCache(DYNAMIC_CACHE, 3);
+                  }); // response mozna skonsumować tylko raz dlatego tworzymy kopie
                   return Promise.resolve(response); // zwracamy response do html-a jako promise
                 });
             })

@@ -3,12 +3,15 @@
   <head>
     <title>PWA example</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#234fdd" />
 
     <link
       rel="stylesheet"
-      href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css"
     />
     <link rel="stylesheet" href="/styles/style.css" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/images/icons/app-icon-144x144.png" />
 
     <script
       src="https://code.jquery.com/jquery-3.4.1.min.js"
@@ -17,11 +20,14 @@
       defer
     ></script>
     <script
-      src="http://netdna.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"
+      src="https://netdna.bootstrapcdn.com/bootstrap/3.3.2/js/bootstrap.min.js"
       defer
     ></script>
     <script src="/js/lib/idb.js" defer></script>
     <script src="/js/lib/idbUtility.js" defer></script>
+    <script src="/js/app.js" defer></script>
+    <script src="/js/reading-from-idb.js" defer></script>
+    <!-- <script src="/js/cache-then-network.js" defer></script> -->
   </head>
 
   <body>
@@ -50,13 +56,17 @@
     </div>
 
     <div class="page-content">
-      <h2>Home page</h2>
+      <h2>Home page eee</h2>
       <p>
         This is a template project with a simple responsive navbar and image.
       </p>
       <p>
         <img class="img-responsive" src="/images/bootstrap.png" />
       </p>
+
+      <hr />
+
+      <div class="user-data-container"></div>
     </div>
   </body>
 </html>
