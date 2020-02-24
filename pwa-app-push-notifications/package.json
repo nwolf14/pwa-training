@@ -7,10 +7,14 @@
     "start": "node_modules/http-server/bin/http-server -a localhost -c-1",
     "generate-sw-with-wizard": "workbox wizard && workbox generateSW workbox-config.js",
     "generate-sw": "workbox generateSW workbox-config.js",
-    "inject-manifest": "workbox injectManifest"
+    "inject-manifest": "workbox injectManifest",
+    "web-push": "web-push generate-vapid-keys"
   },
   "devDependencies": {
     "http-server": "^0.12.1",
     "workbox-cli": "^5.0.0"
+  },
+  "dependencies": {
+    "web-push": "^3.4.3"
   }
 }

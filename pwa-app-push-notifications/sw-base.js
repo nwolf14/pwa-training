@@ -11,7 +11,7 @@ const {
   backgroundSync
 } = workbox;
 
-precaching.precacheAndRoute([{"revision":"273cf29843e887468e723202d9d1b953","url":"index.html"},{"revision":"2969e9700df814bd31a5c28f6b6b60f3","url":"js/app.js"},{"revision":"017ced36d82bea1e08b08393361e354d","url":"js/lib/idb.js"},{"revision":"d091a8b5f8de8c9171f9bfb9afc4ed5e","url":"js/lib/idbUtility.js"},{"revision":"19a9c2e050c2d1a9aafa4361b1ebb2b7","url":"js/reading-from-idb.js"},{"revision":"c906c3c4606d14c648060ee2b927c3dc","url":"js/sending-form.js"},{"revision":"174927677b6f64a5d29aa86a8145ba28","url":"manifest.json"},{"revision":"2c569901991f50525b4a785a4cae5e33","url":"offline.html"},{"revision":"a009e2f16089a574060dd4b6b45c1cbd","url":"package-lock.json"},{"revision":"3e0bcf3f639af500cb3f7ba62000f16d","url":"package.json"},{"revision":"a1fcb685c5e2221c411e4221afd543a9","url":"styles/style.css"},{"revision":"39999a4900072b8786b0a77614fcc132","url":"workbox-7c85bfc1.js"},{"revision":"179ffef67c1cf10fc16cfd906ac286bf","url":"workbox-config.js"}]); // odpowiednik precache w momencie eventu "install"
+precaching.precacheAndRoute(self.__WB_MANIFEST); // odpowiednik precache w momencie eventu "install"
 
 workbox.core.clientsClaim();
 
@@ -67,7 +67,7 @@ routing.registerRoute(
   }
 );
 
-routing.registerRoute(/(https:\/\/randomuser.me\/api).*/, ({ event }) => 
+routing.registerRoute(/(https:\/\/randomuser\.me\/api).*/, ({ event }) => 
     fetch(event.request)
     .then(response => {
       const clonedResponse = response.clone();
@@ -87,7 +87,7 @@ routing.registerRoute(/(https:\/\/randomuser.me\/api).*/, ({ event }) =>
 );
 
 routing.registerRoute(
-  /https:\/\/httpbin.org\/post/,
+  /https:\/\/us-central1-faceducks\.cloudfunctions\.net\/storePostData/,
   new strategies.NetworkOnly({
     plugins: [
       new backgroundSync.BackgroundSyncPlugin('sync-posts', {
@@ -111,3 +111,54 @@ function returnPageOrFallbackFromCache(url) {
       }
     });
 }
+
+addEventListener('notificationclick', event => {
+  const {notification, action} = event;
+
+  if (action === 'confirm') {
+    console.log('confirmed')
+  } else {
+    event.waitUntil(
+      clients.matchAll()
+        .then(function(macthedClients) {
+          const client = macthedClients.find(c => c.visibilityState === 'visible');
+
+          if (client !== undefined) {
+            client.navigate(notification.data.url);
+            client.focus();
+          } else {
+            clients.openWindow(notification.data.url);
+          }
+        })
+    );
+  }
+
+  notification.close();
+})
+
+addEventListener('notificationclose', function(event) {
+  console.log('Notification was closed', event);
+});
+
+addEventListener("push", event => {
+  console.log('Push Notification received', event);
+
+  var data = {title: 'New!', content: 'Something new happened!', openUrl: '/'};
+
+  if (event.data) {
+    data = JSON.parse(event.data.text());
+  }
+
+  var options = {
+    body: data.content,
+    icon: '/images/icons/app-icon-96x96.png',
+    badge: '/images/icons/app-icon-96x96.png',
+    data: {
+      url: data.openUrl
+    }
+  };
+
+  event.waitUntil(
+    registration.showNotification(data.title, options)
+  );
+})
